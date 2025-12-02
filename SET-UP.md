@@ -30,7 +30,7 @@ health-claims-etl/
 │   ├── etl.py                     # main ETL script  
 │   ├── ml_model.py                # ML training script  
 │   ├── db.py                      # Postgres connection  
-│   ├── medical_cost_model.joblib  # saved model (after training)  
+│   ├── medical_cost_model.joblib  # saved model (after training). This file is about ~1 GB so its not in repo.
 ├── sql/  
 │   └── create_tables.sql          # full warehouse schema  
 ├── streamlit_app/  
