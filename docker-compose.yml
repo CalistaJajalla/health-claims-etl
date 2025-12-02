@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: hc_postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: health_claims
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: ./streamlit_app/Dockerfile
+    environment:
+      - POSTGRES_HOST=postgres 
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./streamlit_app:/app
+      - ./venv:/venv
+
+volumes:
+  pgdata:
