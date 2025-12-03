@@ -111,7 +111,7 @@ erDiagram
     }
 
     DIM_LIFESTYLE {
-        VARCHAR person_id PK FK
+        VARCHAR person_id PK
         NUMERIC bmi
         BOOLEAN smoker
         VARCHAR alcohol_freq
@@ -121,7 +121,7 @@ erDiagram
     }
 
     DIM_HEALTH_CONDITIONS {
-        VARCHAR person_id PK FK
+        VARCHAR person_id PK
         BOOLEAN hypertension
         BOOLEAN diabetes
         BOOLEAN copd
@@ -141,7 +141,7 @@ erDiagram
     }
 
     DIM_HEALTHCARE_UTILIZATION {
-        VARCHAR person_id PK FK
+        VARCHAR person_id PK
         INT visits_last_year
         INT hospitalizations_last_3yrs
         INT days_hospitalized_last_3yrs
@@ -155,7 +155,7 @@ erDiagram
     }
 
     DIM_INSURANCE_POLICY {
-        VARCHAR person_id PK FK
+        VARCHAR person_id PK
         VARCHAR plan_type
         VARCHAR network_tier
         NUMERIC deductible
@@ -166,7 +166,7 @@ erDiagram
     }
 
     FACT_MEDICAL_COSTS_CLAIMS {
-        VARCHAR person_id PK FK
+        VARCHAR person_id PK
         NUMERIC annual_medical_cost
         NUMERIC annual_premium
         NUMERIC monthly_premium
@@ -175,11 +175,11 @@ erDiagram
         NUMERIC total_claims_paid
     }
 
-    DIM_LIFESTYLE ||--|| DIM_PERSON : "person_id"
-    DIM_HEALTH_CONDITIONS ||--|| DIM_PERSON : "person_id"
-    DIM_HEALTHCARE_UTILIZATION ||--|| DIM_PERSON : "person_id"
-    DIM_INSURANCE_POLICY ||--|| DIM_PERSON : "person_id"
-    FACT_MEDICAL_COSTS_CLAIMS ||--|| DIM_PERSON : "person_id"
+    DIM_PERSON ||--|| DIM_LIFESTYLE : person_id
+    DIM_PERSON ||--|| DIM_HEALTH_CONDITIONS : person_id
+    DIM_PERSON ||--|| DIM_HEALTHCARE_UTILIZATION : person_id
+    DIM_PERSON ||--|| DIM_INSURANCE_POLICY : person_id
+    DIM_PERSON ||--|| FACT_MEDICAL_COSTS_CLAIMS : person_id
 ```
 
 Then, run this in terminal to create the tables:
@@ -298,7 +298,7 @@ def preprocess_data(df):
     return X_scaled, y, scaler
 ```
 
-2 **Training proper**
+2. **Training proper**
 
 After preprocessing, the dataset is split into training and testing subsets using an 80-20 split via train_test_split. The script then initializes a Random Forest regressor with 200 trees (n_estimators=200) and fits it on the training data.
 
