@@ -298,7 +298,7 @@ def preprocess_data(df):
     return X_scaled, y, scaler
 ```
 
-2 ** Training proper **
+2 **Training proper**
 
 After preprocessing, the dataset is split into training and testing subsets using an 80-20 split via train_test_split. The script then initializes a Random Forest regressor with 200 trees (n_estimators=200) and fits it on the training data.
 
@@ -360,7 +360,7 @@ kpi_df = run_query(kpi_sql, tuple(params)).iloc[0]
 ** Business Questions and SQL Snippets **
 All queries are plotted with `Matplotlib` using a custom color palette. See my dashboard in [link] for the visualizations.
 
-1. What regions have the highest claim counts?
+1. **What regions have the highest claim counts?**
 
 ```sql
 SELECT p.region, SUM(f.claims_count) AS claims_count
@@ -371,7 +371,7 @@ GROUP BY p.region
 ORDER BY claims_count DESC;
 ```
 
-2. Which insurance plan types have the most claims?
+2. **Which insurance plan types have the most claims?**
 
 ```sql
 SELECT i.plan_type, SUM(f.claims_count) AS total_claims
@@ -383,7 +383,7 @@ GROUP BY i.plan_type
 ORDER BY total_claims DESC;
 ```
 
-3. What is the average medical cost by age group?
+3. **What is the average medical cost by age group?**
 
 ```sql
 SELECT
@@ -402,7 +402,7 @@ GROUP BY age_group
 ORDER BY age_group;
 ```
 
-4. How many claims are made per hospitalization by age?
+4. **How many claims are made per hospitalization by age?**
 
 ```sql
 SELECT p.age, AVG(f.claims_count / NULLIF(dhu.hospitalizations_last_3yrs,0)) AS claims_per_hosp
@@ -414,7 +414,7 @@ GROUP BY p.age
 ORDER BY p.age;
 ```
 
-5. What is the average medical cost by insurance plan and region?
+5. **What is the average medical cost by insurance plan and region?**
 
 ```sql
 SELECT p.region, i.plan_type, AVG(f.annual_medical_cost) AS avg_cost
@@ -426,7 +426,7 @@ GROUP BY p.region, i.plan_type
 ORDER BY p.region;
 ```
 
-6. How many high-cost patients (> $50,000 annual cost) are there by region?
+6. **How many high-cost patients (> $50,000 annual cost) are there by region?**
 
 ```sql
 SELECT p.region, COUNT(*) AS high_cost_patients
@@ -443,7 +443,7 @@ The ML prediction section loads the previously trained Random Forest model saved
 
 The ML model is loaded and used as follows:
 
-```pythom
+```python
 model_path = os.path.join(os.path.dirname(__file__), '..', 'etl', 'medical_cost_model.joblib')
 model = load(model_path)
 input_df = pd.DataFrame({
