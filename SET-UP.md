@@ -469,7 +469,8 @@ These visualization options help users interpret the prediction against real dat
 The dashboard app can be launched by navigating to the streamlit_app directory and running:
 
 ```bash
-streamlit run streamlit_app/app.py
+# Change to your actual path
+/path/to/your/venv/bin/python -m streamlit run streamlit_app/app.py
 ```
 
 ---
