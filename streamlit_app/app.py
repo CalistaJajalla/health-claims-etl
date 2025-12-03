@@ -50,8 +50,9 @@ def get_engine():
     port = st.secrets["POSTGRES_PORT"]
     db = st.secrets["POSTGRES_DB"]
     url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
-    return create_engine(url, pool_pre_ping=True)
-
+    engine = create_engine(url, pool_pre_ping=True)
+    return engine
+    
 @st.cache_data(ttl=600)
 def run_query(query, params=()):
     engine = get_engine()
