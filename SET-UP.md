@@ -471,3 +471,15 @@ The dashboard app can be launched by navigating to the streamlit_app directory a
 ```bash
 streamlit run streamlit_app/app.py
 ```
+
+--
+
+## Stopping the Application
+
+Stop all services with:
+
+```bash
+docker-compose down
+```
+
+This command shuts down the containers and cleans up the network, freeing system resources after you’re done using the dashboard and backend services.
