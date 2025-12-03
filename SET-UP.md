@@ -181,6 +181,7 @@ erDiagram
     DIM_PERSON ||--|| DIM_INSURANCE_POLICY : person_id
     DIM_PERSON ||--|| FACT_MEDICAL_COSTS_CLAIMS : person_id
 ```
+---
 
 Then, run this in terminal to create the tables:
 
@@ -357,7 +358,7 @@ WHERE 1=1 {filter_clause};
 kpi_df = run_query(kpi_sql, tuple(params)).iloc[0]
 ```
 
-** Business Questions and SQL Snippets **
+**Business Questions and SQL Snippets**
 All queries are plotted with `Matplotlib` using a custom color palette. See my dashboard in [link] for the visualizations.
 
 1. **What regions have the highest claim counts?**
