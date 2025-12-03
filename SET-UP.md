@@ -472,7 +472,7 @@ The dashboard app can be launched by navigating to the streamlit_app directory a
 streamlit run streamlit_app/app.py
 ```
 
---
+---
 
 ## Stopping the Application
 
