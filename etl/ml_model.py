@@ -10,7 +10,7 @@ def preprocess_data(df: pd.DataFrame):
     # Required features
     features = ['age', 'bmi', 'smoker', 'income', 'chronic_count']
 
-    # Drop rows with missing critical columns
+    # Drop rows with missing columns
     df = df.dropna(subset=features + ['annual_medical_cost'])
 
     # Map smoker strings to 0 or 1; default 0 if unknown

@@ -49,7 +49,7 @@ def clean_transform(df: pd.DataFrame) -> pd.DataFrame:
             else:
                 df[col] = df[col].fillna("Unknown")
 
-    # Add missing lifestyle columns with default values if needed (optional)
+    # Add missing lifestyle columns with default values (optional)
     required_lifestyle_cols = ['exercise_frequency', 'sleep_hours', 'stress_level']
     for col in required_lifestyle_cols:
         if col not in df.columns:
@@ -60,11 +60,11 @@ def clean_transform(df: pd.DataFrame) -> pd.DataFrame:
     if 'sex' in df.columns:
         df['sex'] = df['sex'].astype(str).str.capitalize()
 
-    # Map smoker to int 0/1 (handle possible variations)
+    # Map smoker to int 0/1
     if 'smoker' in df.columns:
         df['smoker'] = df['smoker'].astype(str).str.lower().map({'yes':1, 'no':0, 'never':0}).fillna(0).astype(int)
 
-    # Ensure boolean columns are integer 0/1 (to match SQL boolean or int)
+    # Ensure boolean columns are integer 0/1
     boolean_cols = [
         'hypertension', 'diabetes', 'copd', 'cardiovascular_disease', 'cancer_history',
         'kidney_disease', 'liver_disease', 'arthritis', 'mental_health', 'is_high_risk', 'had_major_procedure'
