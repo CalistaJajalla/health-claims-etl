@@ -44,11 +44,11 @@ def human_format(num):
 
 @st.cache_resource
 def get_engine():
-    user = os.getenv("DB_USER", "user")
-    password = os.getenv("DB_PASSWORD", "password")
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "health_claims")
+    user = st.secrets["DB_USER"]
+    password = st.secrets["DB_PASSWORD"]
+    host = st.secrets["POSTGRES_HOST"]
+    port = st.secrets["POSTGRES_PORT"]
+    db = st.secrets["POSTGRES_DB"]
     url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
     return create_engine(url, pool_pre_ping=True)
 
