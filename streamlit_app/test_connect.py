@@ -4,11 +4,16 @@ import socket
 host = st.secrets["POSTGRES_HOST"]
 port = int(st.secrets["POSTGRES_PORT"])
 
-st.write(f"Testing TCP connection to {host}:{port}...")
+try:
+    # Try IPv6
+    info6 = socket.getaddrinfo(host, port, socket.AF_INET6)
+    st.write("IPv6 addresses:", [i[4][0] for i in info6])
+except Exception as e:
+    st.write("IPv6 resolution error:", e)
 
 try:
-    s = socket.create_connection((host, port), timeout=5)
-    st.success(f"Connection to {host}:{port} succeeded!")
-    s.close()
+    # Try IPv4
+    info4 = socket.getaddrinfo(host, port, socket.AF_INET)
+    st.write("IPv4 addresses:", [i[4][0] for i in info4])
 except Exception as e:
-    st.error(f"Connection to {host}:{port} failed: {e}")
+    st.write("IPv4 resolution error:", e)
