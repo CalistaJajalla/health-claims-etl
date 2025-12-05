@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from sqlalchemy import create_engine
+from db import get_engine 
 import streamlit as st
 from joblib import load
 
