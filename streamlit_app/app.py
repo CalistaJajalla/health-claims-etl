@@ -47,7 +47,7 @@ def human_format(num):
 # Cache the engine connection resource (get from db)
 @st.cache_resource
 def get_engine_cached():
-    return get_engine()
+    return get_engine(st.secrets)  # pass secrets here
 
 @st.cache_data(ttl=600)
 def run_query(query, params=()):
