@@ -5,11 +5,12 @@
 1. [Project Folder Structure](#1-project-folder-structure)  
 2. [About the Dataset](#2-about-the-dataset)  
 3. [Setup Python Virtual Environment (venv)](#3-setup-python-virtual-environment-venv)  
-4. [Docker Setup (Postgres Database)](#4-docker-setup-postgres-database)  
-5. [Create Database Tables (Schema Setup)](#5-create-database-tables-schema-setup)  
-6. [Running the ETL Pipeline](#6-running-the-etl-pipeline)  
-7. [Training the Machine Learning Model](#7-training-the-machine-learning-model)  
-8. [Launching the Streamlit Dashboard](#8-launching-the-streamlit-dashboard)  
+4. [Local vs Remote Database Setup](#4-local-vs-remote-database-setup)  
+5. [Docker Setup (Postgres Database)](#5-docker-setup-postgres-database)  
+6. [Create Database Tables (Schema Setup)](#6-create-database-tables-schema-setup)  
+7. [Running the ETL Pipeline](#7-running-the-etl-pipeline)  
+8. [Training the Machine Learning Model](#8-training-the-machine-learning-model)  
+9. [Launching the Streamlit Dashboard](#9-launching-the-streamlit-dashboard)  
 
 ---
 
@@ -28,11 +29,15 @@ health-claims-etl/
 │   ├── ml_model.py                # ML training script  
 │   ├── db.py                      # Postgres connection engine  
 │   ├── medical_cost_model.joblib  # saved ML model (large, usually not in repo)  
-│   └── scaler.joblib              # saved scaler used in ML pipeline  
+│   └── scaler.joblib              # saved scaler used in ML pipeline
+│   └── __init__.py                # marker that designates a directory as a Python package. 
 ├── sql/  
 │   └── create_tables.sql          # SQL schema to create warehouse & staging tables  
-├── streamlit_app/  
-│   ├── app.py                    # Streamlit dashboard starter, loads model and connects to DB  
+├── streamlit_app/
+│   ├── .streamlit
+│   │  └── secrets.toml           # postgres creds 
+│   ├── app.py                    # Streamlit for cloud-set-up, loads model and connects to DB
+│   ├── app_remote.py             # Streamlit for remote set-up, loads model and connects to DB  
 │   └── Dockerfile                 # Dockerfile for containerizing the Streamlit app  
 ├── requirements.txt               # Python dependencies  
 └── venv/                         # Python virtual environment (.gitignored)
@@ -78,7 +83,22 @@ pip install -r requirements.txt
 
 ---
 
-## 4. Docker Setup (Postgres Database)
+## 4. Local vs Remote Database Setup
+
+You can run your Postgres database either locally or remotely, depending on your preference and project needs.
+
+- **Option 1: Local Setup (Recommended for Beginners)**
+    - Run Postgres locally via Docker (see next section) for easier control and faster iteration.
+    - Most development and testing work can be done locally before deploying remotely.
+      
+- **Option 2: Remote Setup (Supabase)**
+    - Create an account on Supabase or Hugging Face for managed Postgres.
+    - Create a database instance, then create a user and password.
+        - See guide: https://supabase.com/docs/guides/database/postgres/roles
+    - Retrieve the connection pooling link (URL), username, password, and API reference from your dashboard.
+    - Use these credentials in your project to connect remotely.
+
+## 5. Docker Setup (Postgres Database)
 
 Create docker-compose.yml file (see at file section). Then, start the Postgres database and any other services via Docker Compose:
 
@@ -90,7 +110,7 @@ This runs your Postgres container (`hc_postgres`) needed for data storage.
 
 ---
 
-## 5. Create Database Tables (Schema Setup)
+## 6. Create Database Tables (Schema Setup)
 
 Before running ETL, create the necessary tables (see `create_tables.sql` under the sql folder) in the Postgres database. Here's a diagram illustrating the fact and dimension tables.
 
@@ -193,7 +213,7 @@ This sets up all staging and warehouse tables referenced by your ETL scripts.
 
 ---
 
-## 6. Running the ETL Pipeline
+## 7. Running the ETL Pipeline
 See `etl.py` (under the etl folder) which processes the raw CSV data, performs cleaning and transformation, and loads the cleaned data into Postgres tables. The script uses `db.py` to establish the database connection and execute SQL commands.
 
 Key parts of the ETL process with relevant snippets:
@@ -270,7 +290,7 @@ This will ingest, clean, and load your data into the Postgres warehouse, prepari
 
 ---
 
-## 7. Training the Machine Learning Model
+## 8. Training the Machine Learning Model
 
 See the `ml_model.py` script located in the `etl/` folder. This script is designed to train a Random Forest regression model that predicts annual medical costs based on several features from the cleaned insurance dataset.
 
@@ -336,11 +356,33 @@ python etl/ml_model.py data/medical_insurance.csv
 
 ---
 
-## 8. Launching the Streamlit Dashboard
+## 9. Launching the Streamlit Dashboard
 
-The Streamlit code (see `app.py` under the folder streamlit_app) connects to the Postgres database (using `db.py`) to fetch and visualize health insurance claims data with dynamic filters for region and age group. It displays metrics and multiple charts based on SQL queries for a clear view of claims, costs, and plan performance.
+To connect your Streamlit app to the Postgres database securely, you need to provide database credentials via a `secrets.toml` file.
 
-For functions, I used `get_engine()` for database connection caching, and `run_query()` for executing SQL with parameterized filters.
+### Creating `secrets.toml`
+
+Create the file at `streamlit_app/.streamlit/secrets.toml` with:
+
+```postgres  
+host = "<YOUR_DB_HOST>"  
+port = 5432  
+user = "<YOUR_DB_USER>"  
+password = "<YOUR_DB_PASSWORD>"  
+database = "health_claims"
+```
+
+- For **local setup**, use `localhost` (or Docker container IP) as host and your local user/password.  
+- For **remote setup** (Supabase or Hugging Face), use the provided remote host, user, password, and port from their dashboard.  
+
+### How the Streamlit app uses this
+
+- The Streamlit app (`app_remote.py`) reads these secrets for connecting to Postgres using connection pooling.  
+- It uses the `get_engine()` function (from `db.py`) for cached database connections.  
+- The `run_query()` function executes parameterized SQL queries with dynamic filters (e.g., region, age group).  
+- The dashboard displays key metrics and charts to visualize health insurance claims and costs.  
+
+This setup ensures secure, flexible connection to your Postgres backend whether running locally or remotely.
 
 Here's a snippet of my code for KPIs:
 
