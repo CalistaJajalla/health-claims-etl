@@ -2,7 +2,7 @@
 
 A comprehensive end-to-end ETL and machine learning pipeline that processes medical insurance claims data, predicts annual medical costs, and visualizes insights through an interactive Streamlit dashboard.
 
-![Streamlit Banner](./pics/health-claims.FvS8y9xH.gif.part)
+![Streamlit Banner](./pics/health-claims-banner.png)
 
 ---
 
@@ -84,4 +84,5 @@ Here’s the Streamlit demo: https://health-claims-calistajajalla.streamlit.app/
 - Expand ML models to include risk classification or cost anomaly detection
 
 - Improve dashboard UI with export functionality and alerts for high-risk patients
+
 
