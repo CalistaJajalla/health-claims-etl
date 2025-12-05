@@ -7,7 +7,7 @@ import streamlit as st
 from joblib import load
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'etl'))) # to help find db (since it's on another folder)
-from db import get_engi
+from db import get_engine
 
 # Config
 st.set_page_config(page_title="🏥 Health Insurance Claims", layout="wide")
