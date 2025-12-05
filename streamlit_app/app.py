@@ -218,7 +218,7 @@ def main():
         with st.expander("Show Plan Type Full Names"):
             for k,v in plan_defs.items():
                 st.write(f"**{k}**: {v}")
-                
+
     # Chart 3: Average Medical Cost by Age
     cost_sql = f"""
     SELECT
@@ -328,26 +328,26 @@ def main():
             ax6.spines['right'].set_visible(False)
             st.pyplot(fig6)
     
-    # ML Prediction Section)
-    @st.cache_resource
-    def load_model():
-        # logic to load model from local path or huggingface
-        # For example, load from local path:
-        return load("path/to/your/local/medical_cost_model.joblib")
-    
-    # Access Hugging Face API token from secrets
+    # ML Prediction Section
+
+    # Access Hugging Face API token from secrets (if needed for future)
     HF_API_TOKEN = st.secrets.get("HF_API_TOKEN", None)
+    
+    @st.cache_resource
+    def load_model_cached():
+        if not download_model_if_missing():
+            return None
+        return load(LOCAL_MODEL_PATH)
+    
+    def get_model_once():
+        if "model" not in st.session_state:
+            model = load_model_cached()
+            st.session_state["model"] = model
+        return st.session_state["model"]
 
     st.markdown("---")
     st.subheader("Predict Annual Medical Cost")
     st.caption("Enter patient info to estimate future medical cost. The prediction is based on historical trends.")
-    
-    # Load model once and store in session_state to avoid repeated load
-    def get_model_once():
-        if "model" not in st.session_state:
-            model = load_model()  # your cached model loading function
-            st.session_state["model"] = model
-        return st.session_state["model"]
     
     with st.form("predict_form", clear_on_submit=False):
         age = st.number_input("Age", 0, 120, 35)
@@ -374,15 +374,7 @@ def main():
                 })
                 pred = float(model.predict(input_df.values)[0])
                 st.success(f"Predicted Annual Medical Cost: ${pred:,.2f}")
-            except Exception as e:
-            st.error(f"Prediction failed: {e}")
-                    
-                hist_sql = f"""
-                    SELECT annual_medical_cost
-                    FROM fact_medical_costs_claims f
-                    JOIN dim_person p ON f.person_id = p.person_id
-                    WHERE 1=1 {filter_clause};
-                """
+                
                 hist_df = run_query(hist_sql, tuple(params))
                 if hist_df.empty:
                     st.warning("No historical data. Using default ranges.")
