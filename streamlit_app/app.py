@@ -327,14 +327,19 @@ def main():
             ax6.spines['top'].set_visible(False)
             ax6.spines['right'].set_visible(False)
             st.pyplot(fig6)
-
-
-
+    
     # ML Prediction Section
     st.markdown("---")
     st.subheader("Predict Annual Medical Cost")
     st.caption("Enter patient info to estimate future medical cost. The prediction is based on historical trends.")
-
+    
+    # Load model once and store in session_state to avoid repeated load
+    def get_model_once():
+        if "model" not in st.session_state:
+            model = load_model()  # your cached model loading function
+            st.session_state["model"] = model
+        return st.session_state["model"]
+    
     with st.form("predict_form", clear_on_submit=False):
         age = st.number_input("Age", 0, 120, 35)
         bmi = st.number_input("BMI", 10.0, 60.0, 25.0, format="%.2f")
@@ -344,9 +349,9 @@ def main():
         chronic_count = st.number_input("Number of Chronic Conditions", 0, 20, 0)
         vis_type = st.selectbox("Visualization Type", ["Histogram (Low/Med/High)", "Box-Percentiles", "Percentile Gauge"])
         submitted = st.form_submit_button("Predict")
-
+    
     if submitted:
-        model = load_model()
+        model = get_model_once()
         if model is None:
             st.error("Model unavailable and could not be loaded.")
         else:
@@ -360,7 +365,9 @@ def main():
                 })
                 pred = float(model.predict(input_df.values)[0])
                 st.success(f"Predicted Annual Medical Cost: ${pred:,.2f}")
-                
+            except Exception as e:
+                st.error(f"Prediction failed: {e}")
+                    
                 hist_sql = f"""
                     SELECT annual_medical_cost
                     FROM fact_medical_costs_claims f
