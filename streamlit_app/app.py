@@ -80,6 +80,28 @@ def styled_metric(col, label, value, delta=None, delta_color="normal"):
                 unsafe_allow_html=True
             )
 
+# This is for checking if we can connect to the .joblib file in huggingface
+def download_model_if_missing():
+    if not os.path.exists(LOCAL_MODEL_PATH):
+        st.info("Downloading ML model, please wait...")
+        try:
+            response = requests.get(HF_URL)
+            response.raise_for_status()  # raise error if download fails
+            with open(LOCAL_MODEL_PATH, "wb") as f:
+                f.write(response.content)
+            st.success("Model downloaded successfully!")
+        except Exception as e:
+            st.error(f"Failed to download model: {e}")
+            return False
+    return True
+
+# Cache and lazy-load the model once per session (big joblib file optimization)
+@st.cache_resource
+def load_model():
+    if not download_model_if_missing():
+        return None
+    return load(LOCAL_MODEL_PATH)
+
 def main():
     st.title("🏥 Health Insurance Claims Dashboard")
     st.caption("Executive insights: claims, costs, and plan performance")
@@ -307,21 +329,6 @@ def main():
             st.pyplot(fig6)
 
 
-    # This is for checking if we can connect to the .joblib file in huggingface
-    def download_model_if_missing():
-        if not os.path.exists(LOCAL_MODEL_PATH):
-            st.info("Downloading ML model, please wait...")
-            try:
-                response = requests.get(HF_URL)
-                response.raise_for_status()  # raise error if download fails
-                with open(LOCAL_MODEL_PATH, "wb") as f:
-                    f.write(response.content)
-                st.success("Model downloaded successfully!")
-            except Exception as e:
-                st.error(f"Failed to download model: {e}")
-                return False
-        return True
-
     # ML Prediction Section
     st.markdown("---")
     st.subheader("Predict Annual Medical Cost")
@@ -338,11 +345,11 @@ def main():
         submitted = st.form_submit_button("Predict")
 
     if submitted:
-        if not download_model_if_missing():
-            st.error("Model unavailable and could not be downloaded.")
+        model = load_model()
+        if model is None:
+            st.error("Model unavailable and could not be loaded.")
         else:
             try:
-                model = load(LOCAL_MODEL_PATH)
                 input_df = pd.DataFrame({
                     'age': [age],
                     'bmi': [bmi],
@@ -352,7 +359,7 @@ def main():
                 })
                 pred = float(model.predict(input_df.values)[0])
                 st.success(f"Predicted Annual Medical Cost: ${pred:,.2f}")
-    
+                
                 hist_sql = f"""
                     SELECT annual_medical_cost
                     FROM fact_medical_costs_claims f
