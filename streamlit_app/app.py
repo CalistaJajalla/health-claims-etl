@@ -2,21 +2,21 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from sqlalchemy import create_engine
 import streamlit as st
 from joblib import load
+from db import get_engine  # import from your db.py file
 
 # Config
 st.set_page_config(page_title="🏥 Health Insurance Claims", layout="wide")
 
 # Palette I searched in the internet (https://www.color-hex.com/color-palette/114966)
 PALETTE = {
-    "background_light": "#ffd5d5",  # light pink background for KPI boxes
-    "primary": "#ff867c",           # main coral-ish color for bars, titles
-    "accent": "#ffeaac",            # pale yellow accent
-    "success": "#95ccc5",           # teal-ish for success/highlights
-    "dark": "#2e5668",              # dark teal for text and lines
-    "shadow": "rgba(46, 86, 104, 0.15)",  # shadow color with transparency
+    "background_light": "#ffd5d5",
+    "primary": "#ff867c",
+    "accent": "#ffeaac",
+    "success": "#95ccc5",
+    "dark": "#2e5668",
+    "shadow": "rgba(46, 86, 104, 0.15)",
 }
 
 plt.rcParams.update({
@@ -30,7 +30,7 @@ plt.rcParams.update({
     "ytick.color": PALETTE["dark"],
 })
 
-# Helpers
+# Helpers (This is just for making the numbers more readabl, i.e., 20000 --> 20K)
 def human_format(num):
     if num is None or (isinstance(num, float) and pd.isna(num)):
         return "N/A"
@@ -42,20 +42,14 @@ def human_format(num):
     suffix = ['', 'K', 'M', 'B', 'T'][magnitude]
     return f"{n:.0f}{suffix}"
 
+# Cache the engine connection resource (get from db)
 @st.cache_resource
-def get_engine():
-    user = st.secrets["DB_USER"]
-    password = st.secrets["DB_PASSWORD"]
-    host = st.secrets["POSTGRES_HOST"]
-    port = st.secrets["POSTGRES_PORT"]
-    db = st.secrets["POSTGRES_DB"]
-    url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
-    engine = create_engine(url, pool_pre_ping=True)
-    return engine
-    
+def get_engine_cached():
+    return get_engine()
+
 @st.cache_data(ttl=600)
 def run_query(query, params=()):
-    engine = get_engine()
+    engine = get_engine_cached()
     return pd.read_sql(query, engine, params=params)
 
 # Custom KPI box styling
