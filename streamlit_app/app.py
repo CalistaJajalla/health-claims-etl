@@ -6,17 +6,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 from joblib import load
-from db import get_engine     
-import requests
+from db import get_engine
+from huggingface_hub import hf_hub_download  # NEW: huggingface_hub for efficient caching
 
-# This is for my joblib file (I uploaded it in huggingface so I need to link that to github)
-HF_URL = "https://huggingface.co/CalIX7a/ml-health-claims/resolve/main/medical_cost_model.joblib"
-LOCAL_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'etl', 'medical_cost_model.joblib')
+# Model repo details on HF Hub
+HF_REPO_ID = "CalIX7a/ml-health-claims"
+HF_FILENAME = "medical_cost_model.joblib"
+
+# Local model path relative to etl folder
+LOCAL_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'etl', HF_FILENAME)
 
 # Config
 st.set_page_config(page_title="🏥 Health Insurance Claims", layout="wide")
 
-# Palette I searched in the internet (https://www.color-hex.com/color-palette/114966)
 PALETTE = {
     "background_light": "#ffd5d5",
     "primary": "#ff867c",
@@ -37,7 +39,6 @@ plt.rcParams.update({
     "ytick.color": PALETTE["dark"],
 })
 
-# Helpers (This is just for making the numbers more readable, i.e., 20000 --> 20K)
 def human_format(num):
     if num is None or (isinstance(num, float) and pd.isna(num)):
         return "N/A"
@@ -49,17 +50,15 @@ def human_format(num):
     suffix = ['', 'K', 'M', 'B', 'T'][magnitude]
     return f"{n:.0f}{suffix}"
 
-# Cache the engine connection resource (get from db)
 @st.cache_resource
 def get_engine_cached():
-    return get_engine(st.secrets)  # pass secrets here
+    return get_engine(st.secrets)
 
 @st.cache_data(ttl=600)
 def run_query(query, params=()):
     engine = get_engine_cached()
     return pd.read_sql(query, engine, params=params)
 
-# Custom KPI box styling
 def styled_metric(col, label, value, delta=None, delta_color="normal"):
     label_style = "font-weight:600; font-size:1.1rem; color:{dark}; margin-bottom:-5px;".format(**PALETTE)
     value_style = "font-size:2.3rem; font-weight:700; color:{primary}; margin:0;".format(**PALETTE)
@@ -80,27 +79,29 @@ def styled_metric(col, label, value, delta=None, delta_color="normal"):
                 unsafe_allow_html=True
             )
 
-# This is for checking if we can connect to the .joblib file in huggingface
-def download_model_if_missing():
-    if not os.path.exists(LOCAL_MODEL_PATH):
-        st.info("Downloading ML model, please wait...")
-        try:
-            response = requests.get(HF_URL)
-            response.raise_for_status()  # raise error if download fails
-            with open(LOCAL_MODEL_PATH, "wb") as f:
-                f.write(response.content)
-            st.success("Model downloaded successfully!")
-        except Exception as e:
-            st.error(f"Failed to download model: {e}")
-            return False
-    return True
-
-# Cache and lazy-load the model once per session (big joblib file optimization)
 @st.cache_resource
 def load_model():
-    if not download_model_if_missing():
+    """
+    Use huggingface_hub to download and cache the model.
+    This will download only once and reuse the cached file for faster load.
+    """
+    try:
+        # Downloads to HF cache dir if not already cached
+        model_path = hf_hub_download(repo_id=HF_REPO_ID, filename=HF_FILENAME)
+        # Also save a local copy (optional)
+        if not os.path.exists(LOCAL_MODEL_PATH):
+            os.makedirs(os.path.dirname(LOCAL_MODEL_PATH), exist_ok=True)
+            with open(model_path, "rb") as src, open(LOCAL_MODEL_PATH, "wb") as dst:
+                dst.write(src.read())
+        return load(model_path)
+    except Exception as e:
+        st.error(f"Failed to load ML model: {e}")
         return None
-    return load(LOCAL_MODEL_PATH)
+
+def get_model_once():
+    if "model" not in st.session_state:
+        st.session_state["model"] = load_model()
+    return st.session_state["model"]
 
 def main():
     st.title("🏥 Health Insurance Claims Dashboard")
@@ -148,7 +149,6 @@ def main():
     """
     kpi_df = run_query(kpi_sql, tuple(params)).iloc[0]
 
-    # Show KPIs in boxes
     k1, k2, k3, k4 = st.columns(4)
     styled_metric(k1, "Total Patients", human_format(kpi_df.total_patients))
     styled_metric(k2, "Total Medical Cost", f"${human_format(kpi_df.total_medical_cost)}")
@@ -329,31 +329,10 @@ def main():
             st.pyplot(fig6)
     
     # ML Prediction Section
-    
-    # Access Hugging Face API token from secrets (if needed for future)
-    HF_API_TOKEN = st.secrets.get("HF_API_TOKEN", None)
-    
-    @st.cache_resource
-    def load_model_cached():
-        if not download_model_if_missing():
-            return None
-        try:
-            model = load(LOCAL_MODEL_PATH)
-            return model
-        except Exception as e:
-            st.error(f"Failed to load ML model: {e}")
-            return None
-    
-    def get_model_once():
-        if "model" not in st.session_state:
-            model = load_model_cached()
-            st.session_state["model"] = model
-        return st.session_state["model"]
-    
     st.markdown("---")
     st.subheader("Predict Annual Medical Cost")
     st.caption("Enter patient info to estimate future medical cost. The prediction is based on historical trends.")
-    
+
     with st.form("predict_form", clear_on_submit=False):
         age = st.number_input("Age", 0, 120, 35)
         bmi = st.number_input("BMI", 10.0, 60.0, 25.0, format="%.2f")
@@ -363,100 +342,100 @@ def main():
         chronic_count = st.number_input("Number of Chronic Conditions", 0, 20, 0)
         vis_type = st.selectbox("Visualization Type", ["Histogram (Low/Med/High)", "Box-Percentiles", "Percentile Gauge"])
         submitted = st.form_submit_button("Predict")
-    
+
     if submitted:
         model = get_model_once()
         if model is None:
             st.error("Model unavailable and could not be loaded.")
-        else:
-            try:
-                input_df = pd.DataFrame({
-                    'age': [age],
-                    'bmi': [bmi],
-                    'smoker': [smoker_val],
-                    'income': [income],
-                    'chronic_count': [chronic_count]
-                })
-                pred = float(model.predict(input_df.values)[0])
-                st.success(f"Predicted Annual Medical Cost: ${pred:,.2f}")
-    
-                # Fetch historical cost data for visualization
-                hist_df = run_query(hist_sql, tuple(params))
-                if hist_df.empty:
-                    st.warning("No historical data. Using default ranges.")
-                    costs = pd.Series([5000, 12000, 25000, 60000, 120000])
-                else:
-                    costs = hist_df['annual_medical_cost']
-                    lower, upper = costs.quantile(0.05), costs.quantile(0.95)
-                    costs = costs[(costs >= lower) & (costs <= upper)]
-    
-                p25 = costs.quantile(0.25)
-                median = costs.median()
-                p75 = costs.quantile(0.75)
-                min_val = costs.min()
-                max_val = costs.max()
-    
-                fig, ax = plt.subplots(figsize=(6, 2.5))
-    
-                if vis_type == "Histogram (Low/Med/High)":
-                    bins = [min_val, p25, p75, max_val]
-                    colors = [PALETTE['primary'], PALETTE['accent'], PALETTE['success']]
-                    labels = ['Low', 'Typical', 'High']
-                    left = bins[0]
-                    for i in range(len(bins) - 1):
-                        width = bins[i+1] - left
-                        ax.barh([0], width, left=left, color=colors[i], edgecolor='white', label=labels[i])
-                        left = bins[i+1]
-                    ax.axvline(pred, color=PALETTE['dark'], linestyle='--', lw=2, label="Prediction")
-                    ax.set_yticks([])
-                    ax.set_xlabel("Annual Medical Cost (USD)", color=PALETTE['dark'])
-                    ax.set_title("Prediction in Context (Low/Typical/High)", color=PALETTE['dark'])
-                    ax.legend(loc='upper right', frameon=False)
-                    ax.spines['top'].set_visible(False)
-                    ax.spines['right'].set_visible(False)
-    
-                    st.caption(
-                        "Histogram shows where your predicted cost falls relative to typical patients. "
-                        "Low/High defined by 25th and 75th percentiles; extreme outliers excluded."
-                    )
-    
-                elif vis_type == "Box-Percentiles":
-                    ax.barh([0], p75 - p25, left=p25, color=PALETTE['accent'], edgecolor='white', height=0.5)
-                    ax.plot([median], [0], marker='o', color=PALETTE['dark'], label='Median')
-                    ax.plot([pred], [0], marker='X', color=PALETTE['primary'], markersize=10, label='Prediction')
-                    ax.set_yticks([])
-                    ax.set_xlabel("Annual Medical Cost (USD)", color=PALETTE['dark'])
-                    ax.set_title("Prediction vs Typical Range (25th–75th Percentile)", color=PALETTE['dark'])
-                    ax.legend(loc='upper right', frameon=False)
-                    ax.spines['top'].set_visible(False)
-                    ax.spines['right'].set_visible(False)
-    
-                    st.caption(
-                        "Bar shows the interquartile range (25th–75th percentile) of patient costs. "
-                        "The dot is the median, and the X is your prediction."
-                    )
-    
-                elif vis_type == "Percentile Gauge":
-                    percentile = ((pred - min_val) / (max_val - min_val)) * 100
-                    percentile = max(0, min(percentile, 100))
-                    ax.barh([0], 100, color=PALETTE['accent'], height=0.4)
-                    ax.barh([0], percentile, color=PALETTE['primary'], height=0.4)
-                    ax.set_yticks([])
-                    ax.set_xlabel("Percentile of Annual Medical Costs", color=PALETTE['dark'])
-                    ax.set_title("Prediction Percentile vs Typical Patients", color=PALETTE['dark'])
-                    ax.text(percentile + 1, 0, f"{percentile:.0f}%", va='center', fontweight='bold', color=PALETTE['dark'])
-                    ax.spines['top'].set_visible(False)
-                    ax.spines['right'].set_visible(False)
-    
-                    st.caption(
-                        "Gauge shows the percentile ranking of your predicted cost among typical patients. "
-                        "Outliers are excluded, so 50% represents the median patient cost."
-                    )
-    
-                st.pyplot(fig)
-    
-            except Exception as e:
-                st.error(f"Prediction failed: {e}")
+            return
+        try:
+            input_df = pd.DataFrame({
+                'age': [age],
+                'bmi': [bmi],
+                'smoker': [smoker_val],
+                'income': [income],
+                'chronic_count': [chronic_count]
+            })
+            pred = float(model.predict(input_df.values)[0])
+            st.success(f"Predicted Annual Medical Cost: ${pred:,.2f}")
+
+            # Your historical cost query here (make sure hist_sql and params are defined in your full code)
+            hist_df = run_query(hist_sql, tuple(params)) if 'hist_sql' in globals() else pd.DataFrame()
+            if hist_df.empty:
+                st.warning("No historical data. Using default ranges.")
+                costs = pd.Series([5000, 12000, 25000, 60000, 120000])
+            else:
+                costs = hist_df['annual_medical_cost']
+                lower, upper = costs.quantile(0.05), costs.quantile(0.95)
+                costs = costs[(costs >= lower) & (costs <= upper)]
+
+            p25 = costs.quantile(0.25)
+            median = costs.median()
+            p75 = costs.quantile(0.75)
+            min_val = costs.min()
+            max_val = costs.max()
+
+            fig, ax = plt.subplots(figsize=(6, 2.5))
+
+            if vis_type == "Histogram (Low/Med/High)":
+                bins = [min_val, p25, p75, max_val]
+                colors = [PALETTE['primary'], PALETTE['accent'], PALETTE['success']]
+                labels = ['Low', 'Typical', 'High']
+                left = bins[0]
+                for i in range(len(bins) - 1):
+                    width = bins[i+1] - left
+                    ax.barh([0], width, left=left, color=colors[i], edgecolor='white', label=labels[i])
+                    left = bins[i+1]
+                ax.axvline(pred, color=PALETTE['dark'], linestyle='--', lw=2, label="Prediction")
+                ax.set_yticks([])
+                ax.set_xlabel("Annual Medical Cost (USD)", color=PALETTE['dark'])
+                ax.set_title("Prediction in Context (Low/Typical/High)", color=PALETTE['dark'])
+                ax.legend(loc='upper right', frameon=False)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+
+                st.caption(
+                    "Histogram shows where your predicted cost falls relative to typical patients. "
+                    "Low/High defined by 25th and 75th percentiles; extreme outliers excluded."
+                )
+
+            elif vis_type == "Box-Percentiles":
+                ax.barh([0], p75 - p25, left=p25, color=PALETTE['accent'], edgecolor='white', height=0.5)
+                ax.plot([median], [0], marker='o', color=PALETTE['dark'], label='Median')
+                ax.plot([pred], [0], marker='X', color=PALETTE['primary'], markersize=10, label='Prediction')
+                ax.set_yticks([])
+                ax.set_xlabel("Annual Medical Cost (USD)", color=PALETTE['dark'])
+                ax.set_title("Prediction vs Typical Range (25th–75th Percentile)", color=PALETTE['dark'])
+                ax.legend(loc='upper right', frameon=False)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+
+                st.caption(
+                    "Bar shows the interquartile range (25th–75th percentile) of patient costs. "
+                    "The dot is the median, and the X is your prediction."
+                )
+
+            elif vis_type == "Percentile Gauge":
+                percentile = ((pred - min_val) / (max_val - min_val)) * 100
+                percentile = max(0, min(percentile, 100))
+                ax.barh([0], 100, color=PALETTE['accent'], height=0.4)
+                ax.barh([0], percentile, color=PALETTE['primary'], height=0.4)
+                ax.set_yticks([])
+                ax.set_xlabel("Percentile of Annual Medical Costs", color=PALETTE['dark'])
+                ax.set_title("Prediction Percentile vs Typical Patients", color=PALETTE['dark'])
+                ax.text(percentile + 1, 0, f"{percentile:.0f}%", va='center', fontweight='bold', color=PALETTE['dark'])
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+
+                st.caption(
+                    "Gauge shows the percentile ranking of your predicted cost among typical patients. "
+                    "Outliers are excluded, so 50% represents the median patient cost."
+                )
+
+            st.pyplot(fig)
+
+        except Exception as e:
+            st.error(f"Prediction failed: {e}")
 
 if __name__ == "__main__":
     main()
