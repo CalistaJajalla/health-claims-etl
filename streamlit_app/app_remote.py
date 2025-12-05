@@ -43,21 +43,14 @@ def human_format(num):
     return f"{n:.0f}{suffix}"
 
 @st.cache_resource
-def get_engine():
-    # Read Postgres credentials from secrets.toml in streamlit_app/.streamlit
-    user = st.secrets["postgres"]["user"]
-    password = st.secrets["postgres"]["password"]
-    host = st.secrets["postgres"]["host"]
-    port = st.secrets["postgres"]["port"]
-    db = st.secrets["postgres"]["database"]
-    url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
-    engine = create_engine(url)
-    return engine
-    
+def get_engine_cached():
+    return get_engine(st.secrets["postgres"])
+
 @st.cache_data(ttl=600)
 def run_query(query, params=()):
-    engine = get_engine()
+    engine = get_engine_cached()
     return pd.read_sql(query, engine, params=params)
+
 
 # Custom KPI box styling
 def styled_metric(col, label, value, delta=None, delta_color="normal"):
