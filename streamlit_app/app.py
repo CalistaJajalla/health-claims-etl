@@ -1,13 +1,10 @@
 import os
-import sys 
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 from joblib import load
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'etl'))) # to help find db (since it's on another folder)
-from db import get_engine
+from etl.db import get_engine 
 
 # Config
 st.set_page_config(page_title="🏥 Health Insurance Claims", layout="wide")
