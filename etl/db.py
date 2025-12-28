@@ -1,37 +1,26 @@
-# etl/db.py
 from sqlalchemy import create_engine
-import streamlit as st
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
-def get_engine():
-    """
-    Attempt connection to Supabase Direct URI first.
-    Fallback to local Postgres if needed.
-    """
-    # Supabase Direct connection from Streamlit secrets
-    SUPABASE_URI = st.secrets.get("SUPABASE_URI")  # e.g., postgresql://postgres:<password>@db.admnjjcsgnvpqemgmmip.supabase.co:5432/postgres
+def get_engine(secrets):
+    # Cloud: use Supabase Pooler URL if available
+    if "DATABASE_URL" in secrets:
+        url = secrets["DATABASE_URL"]
+        # Sanitize URL: remove 'pgbouncer=true' if present
+        parsed = urlparse(url)
+        query_params = parse_qs(parsed.query)
+        query_params.pop('pgbouncer', None)  # remove pgbouncer
+        
+        new_query = urlencode(query_params, doseq=True)
+        cleaned_url = urlunparse(parsed._replace(query=new_query))
+        
+        return create_engine(cleaned_url, pool_pre_ping=True)
 
-    if SUPABASE_URI:
-        try:
-            engine = create_engine(SUPABASE_URI, pool_pre_ping=True)
-            # Test connection
-            with engine.connect() as conn:
-                conn.execute("SELECT 1")
-            return engine
-        except Exception as e:
-            st.warning(f"Supabase connection failed: {e}")
+    # Local: use normal Postgres connection from individual secrets
+    user = secrets["DB_USER"]
+    password = secrets["DB_PASSWORD"]
+    host = secrets["POSTGRES_HOST"]
+    port = secrets["POSTGRES_PORT"]
+    db = secrets["POSTGRES_DB"]
 
-    # Local fallback (optional, only if Postgres is running locally)
-    LOCAL_DB = {
-        "user": "noche_user",
-        "password": "noche_pass",
-        "host": "localhost",
-        "port": 5432,
-        "dbname": "nochebuena",
-    }
-    try:
-        url = f"postgresql://{LOCAL_DB['user']}:{LOCAL_DB['password']}@{LOCAL_DB['host']}:{LOCAL_DB['port']}/{LOCAL_DB['dbname']}"
-        engine = create_engine(url, pool_pre_ping=True)
-        return engine
-    except Exception as e:
-        st.error(f"No DB available: {e}")
-        st.stop()
+    url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+    return create_engine(url, pool_pre_ping=True)
